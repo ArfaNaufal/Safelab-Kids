@@ -12,7 +12,7 @@
         <div class="md:w-1/2 flex justify-center">
             <div class="glass-card p-4 relative border-4 border-green-200 bg-white">
                 <div class="absolute -top-4 -left-4 bg-green-100 text-green-700 px-3 py-1 rounded-full font-bold text-sm shadow-sm"><i class="fa-solid fa-star"></i> +10 Poin Pintar</div>
-                <img src="https://placehold.co/400x300/eef2ff/004de6?text=Ilustrasi+Anak+Sains" alt="Ilustrasi Sains" class="rounded-xl w-full">
+                <img src="https://freevector-images.s3.amazonaws.com/uploads/vector/preview/94437/vecteezywomen-in-science-character-focused-illustrationas1121_generated.jpg" alt="Ilustrasi Sains" class="rounded-xl w-full">
             </div>
         </div>
     </section>

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafeLab Kids</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = { theme: { extend: { colors: { brand: '#004de6', brandHover: '#003bb3' } } } }
@@ -19,6 +20,11 @@
             <a href="{{ route('home') }}" class="hover:text-brand {{ request()->routeIs('home') ? 'text-brand font-semibold' : '' }}">Home</a>
             <a href="{{ route('catalog') }}" class="hover:text-brand {{ request()->routeIs('catalog') ? 'text-brand font-semibold' : '' }}">Eksperimen</a>
             <a href="{{ route('dashboard') }}" class="hover:text-brand {{ request()->routeIs('dashboard') ? 'text-brand font-semibold' : '' }}">Dashboard</a>
+            @auth
+                @if(Auth::user()->role === 'admin')
+                    <a href="{{ route('admin.experiments.index') }}" class="hover:text-brand {{ request()->routeIs('admin.*') ? 'text-brand font-semibold' : '' }}">Admin</a>
+                @endif
+            @endauth
         </div>
         <div class="relative">
             @auth
@@ -27,7 +33,10 @@
                         {{ Auth::user()->name }}
                         <i class="fa-solid fa-chevron-down text-xs"></i>
                     </button>
-                    <div class="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        @if(Auth::user()->role === 'admin')
+                            <a href="{{ route('admin.experiments.index') }}" class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100">Admin Eksperimen</a>
+                        @endif
                         <a href="{{ route('profile.edit') }}" class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100">Edit Profil</a>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -42,7 +51,16 @@
     </nav>
 
     <main class="flex-grow">
+        @if(isset($header))
+            <div class="bg-white shadow-sm border-b border-gray-200">
+                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                    {{ $header }}
+                </div>
+            </div>
+        @endif
+
         @yield('content')
+        {{ $slot ?? '' }}
     </main>
 
     <footer class="bg-brand text-white py-6 text-center mt-auto">
