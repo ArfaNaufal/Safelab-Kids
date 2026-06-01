@@ -42,8 +42,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('experiment_id')->constrained()->cascadeOnDelete();
-            $table->enum('status', ['started', 'completed'])->default('started');
+            $table->enum('status', ['started', 'quiz_pending', 'completed'])->default('started');
             $table->integer('score')->nullable();
+            $table->integer('current_step')->default(1);
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
         });

@@ -22,4 +22,9 @@ class Experiment extends Model
     public function progress() {
         return $this->hasMany(ExperimentProgress::class);
     }
+
+    public function questions()
+    {
+        return $this->hasMany(Question::class);
+    }
 }

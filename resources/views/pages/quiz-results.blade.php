@@ -27,19 +27,22 @@
     <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-8 mb-8">
         <div class="mb-6">
             @if($result->score >= 80)
-                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded mb-6">
                     <p class="text-green-700 font-semibold"><i class="fa-solid fa-check-circle mr-2"></i>Luar Biasa!</p>
-                        <p class="text-green-600 text-sm">Anda lulus kuis. Eksperimen ini sekarang selesai dan poin telah diberikan.</p>
-                    </div>
-                @elseif($result->score >= 60)
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                        <p class="text-blue-700 font-semibold"><i class="fa-solid fa-thumbs-up mr-2"></i>Bagus!</p>
-                        <p class="text-blue-600 text-sm">Nilai Anda cukup baik, tetapi belum memenuhi batas kelulusan. Silakan ulangi kuis untuk menyelesaikan eksperimen.</p>
-                    </div>
-                @else
-                    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded">
-                        <p class="text-amber-700 font-semibold"><i class="fa-solid fa-info-circle mr-2"></i>Coba Lagi</p>
-                        <p class="text-amber-600 text-sm">Nilai Anda di bawah {{ \App\Http\Controllers\Web\PageController::QUIZ_PASSING_SCORE }}%. Eksperimen belum selesai, pelajari kembali langkah simulasi dan coba lagi.</p>
+                    <p class="text-green-600 text-sm">Anda lulus kuis. Eksperimen ini sekarang selesai dan poin telah diberikan.</p>
+                </div>
+            @elseif($result->score >= 60)
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-6">
+                    <p class="text-blue-700 font-semibold"><i class="fa-solid fa-thumbs-up mr-2"></i>Bagus!</p>
+                    <p class="text-blue-600 text-sm">Nilai Anda cukup baik, tetapi belum memenuhi batas kelulusan. Silakan ulangi kuis untuk menyelesaikan eksperimen.</p>
+                </div>
+            @else
+                <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded mb-6">
+                    <p class="text-amber-700 font-semibold"><i class="fa-solid fa-info-circle mr-2"></i>Coba Lagi</p>
+                    <p class="text-amber-600 text-sm">Nilai Anda di bawah {{ \App\Http\Controllers\Web\PageController::QUIZ_PASSING_SCORE }}%. Eksperimen belum selesai, pelajari kembali langkah simulasi dan coba lagi.</p>
+                </div>
+            @endif
+
             <h3 class="text-xl font-bold mb-4 text-gray-900">Ringkasan Hasil</h3>
             <div class="space-y-3 text-sm">
                 <div class="flex justify-between">

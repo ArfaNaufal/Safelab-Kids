@@ -7,9 +7,6 @@
             <h1 class="text-4xl font-bold text-brand mb-2">Halo, {{ $user->name }}!<br>Pantau Progres Si Kecil</h1>
             <p class="text-gray-600 max-w-lg mt-3">Lihat perkembangan belajar si kecil hari ini. Dukung terus rasa ingin tahunya di SafeLab!</p>
         </div>
-        <div class="z-10 mt-6 md:mt-0">
-            <img src="https://placehold.co/120x120/004de6/ffffff?text=pict" class="rounded-full w-28 h-28 border-4 border-white shadow-lg object-cover" alt="Ayah">
-        </div>
         <div class="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-blue-100 to-transparent opacity-50"></div>
     </div>
 

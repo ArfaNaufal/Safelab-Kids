@@ -120,6 +120,7 @@
         const steps = @json(is_array($experiment->simulation_data['steps'] ?? null) ? $experiment->simulation_data['steps'] : []);
         const totalSteps = {{ $totalSteps }};
         let currentStep = {{ $currentStep }};
+        let status = @json($progressStatus);
         const statusLabel = document.getElementById('statusLabel');
         const progressBar = document.getElementById('progressBar');
         const stepText = document.getElementById('stepText');
@@ -130,6 +131,12 @@
         const quizBtn = document.getElementById('quizBtn');
         const resultLabel = document.getElementById('resultLabel');
 
+        const getStatusLabel = () => {
+            return status === 'completed'
+                ? 'Selesai'
+                : (status === 'quiz_pending' ? 'Menunggu Kuis' : (status === 'started' ? 'Berjalan' : 'Belum Dimulai'));
+        };
+
         const updateStepUI = () => {
             const stepIndex = Math.min(Math.max(currentStep, 1), totalSteps);
             stepText.textContent = steps[stepIndex - 1] || 'Tidak ada langkah yang tersedia untuk eksperimen ini.';
@@ -137,6 +144,7 @@
             maxSteps.textContent = totalSteps;
             const percent = totalSteps > 1 ? Math.round(((stepIndex - 1) / (totalSteps - 1)) * 100) : 100;
             progressBar.style.width = `${percent}%`;
+            statusLabel.textContent = getStatusLabel();
 
             if (stepIndex >= totalSteps) {
                 nextStepBtn.textContent = 'Selesaikan Simulasi';
@@ -145,17 +153,19 @@
             }
 
             if (resetStepBtn) {
-                resetStepBtn.classList.toggle('hidden', stepIndex <= 1 && statusLabel.textContent !== 'Selesai' && statusLabel.textContent !== 'Menunggu Kuis');
+                const showReset = currentStep > 1 || status === 'quiz_pending' || status === 'completed';
+                resetStepBtn.classList.toggle('hidden', !showReset);
             }
 
             if (quizBtn) {
-                quizBtn.classList.toggle('hidden', statusLabel.textContent !== 'Selesai' && statusLabel.textContent !== 'Menunggu Kuis');
+                const showQuiz = status === 'quiz_pending' || status === 'completed';
+                quizBtn.classList.toggle('hidden', !showQuiz);
             }
         };
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        const saveProgress = async (status, step) => {
+        const saveProgress = async (newStatus, step) => {
             try {
                 const response = await fetch('{{ route('simulation.progress', $experiment->id) }}', {
                     method: 'POST',
@@ -164,7 +174,7 @@
                         'X-CSRF-TOKEN': csrfToken,
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ status, step })
+                    body: JSON.stringify({ status: newStatus, step })
                 });
                 return await response.json();
             } catch (error) {
@@ -182,7 +192,7 @@
                 const result = await saveProgress('completed', totalSteps);
                 if (result && result.status === 'success') {
                     currentStep = totalSteps;
-                    statusLabel.textContent = 'Menunggu Kuis';
+                    status = 'quiz_pending';
                     resultLabel.textContent = 'Simulasi selesai. Lengkapi kuis untuk menyelesaikan eksperimen.';
                     updateStepUI();
                 }
@@ -193,7 +203,7 @@
             const result = await saveProgress('started', nextStep);
             if (result && result.status === 'success') {
                 currentStep = nextStep;
-                statusLabel.textContent = 'Berjalan';
+                status = 'started';
                 resultLabel.textContent = '';
                 updateStepUI();
             }
@@ -203,7 +213,7 @@
             const result = await saveProgress('reset', 1);
             if (result && result.status === 'success') {
                 currentStep = 1;
-                statusLabel.textContent = 'Berjalan';
+                status = 'started';
                 resultLabel.textContent = 'Simulasi sudah direset. Mulai lagi dari langkah pertama.';
                 updateStepUI();
             }
