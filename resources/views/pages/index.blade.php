@@ -38,7 +38,7 @@
             <div class="glass-card p-8 text-left hover:-translate-y-1 transition">
                 <div class="w-12 h-12 bg-blue-100 text-brand rounded-lg flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-clipboard-check"></i></div>
                 <h3 class="font-bold text-xl mb-2">Panduan Interaktif</h3>
-                <p class="text-gray-600 text-sm">Asisten Lab AI kami membimbing langkah demi langkah, memastikan anak memahami urutan eksperimen dengan benar.</p>
+                <p class="text-gray-600 text-sm">Kami membimbing langkah demi langkah, memastikan anak memahami urutan eksperimen dengan benar.</p>
             </div>
             <div class="glass-card p-8 text-left hover:-translate-y-1 transition">
                 <div class="w-12 h-12 bg-blue-100 text-brand rounded-lg flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-comment-dots"></i></div>
