@@ -13,7 +13,10 @@ class QuizService
     {
         return Question::where('experiment_id', $experimentId)
             ->with('answers')
-            ->get();
+            ->get()
+            ->each(function (Question $question) {
+                $question->setRelation('answers', $question->answers->shuffle());
+            });
     }
 
     public function createQuizResult(int $userId, Experiment $experiment, array $answers): QuizResult
