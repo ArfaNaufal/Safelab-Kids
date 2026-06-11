@@ -1,12 +1,15 @@
 <?php
+
 namespace App\Http\Controllers\Web;
 
+use App\Application\Services\ExperimentService;
+use App\Application\Services\ProgressService;
+use App\Application\Services\QuizService;
 use App\Http\Controllers\Controller;
 use App\Models\Experiment;
-use App\Models\ExperimentProgress;
+use App\Models\QuizResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class PageController extends Controller
 {
@@ -15,53 +18,47 @@ class PageController extends Controller
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_QUIZ_PENDING = 'quiz_pending';
 
+    public function __construct(
+        private ExperimentService $experimentService,
+        private ProgressService $progressService,
+        private QuizService $quizService
+    ) {
+    }
+
     public function index()
     {
-        $popularExperiments = Experiment::orderByDesc('points_reward')->take(3)->get();
-        $totalExperimentCount = Experiment::count();
+        $popularExperiments = $this->experimentService->popularExperiments();
+        $totalExperimentCount = $this->experimentService->experimentCount();
 
         return view('pages.index', compact('popularExperiments', 'totalExperimentCount'));
     }
 
     public function catalog(Request $request)
     {
-        $query = Experiment::query();
+        $filters = [
+            'search' => $request->query('q'),
+            'category' => $request->query('category'),
+            'difficulty' => $request->query('difficulty'),
+        ];
 
-        if ($search = $request->query('q')) {
-            $query->where(function ($sub) use ($search) {
-                $sub->where('title', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        if ($category = $request->query('category')) {
-            $query->where('category', $category);
-        }
-
-        if ($difficulty = $request->query('difficulty')) {
-            $query->where('difficulty', $difficulty);
-        }
-
-        $experiments = $query->orderBy('title')->get();
-        $categories = Experiment::select('category')->distinct()->pluck('category')->toArray();
+        $experiments = $this->experimentService->listExperiments($filters);
+        $categories = $this->experimentService->categories();
         $difficulties = ['Mudah', 'Sedang', 'Sulit'];
 
         $progressMap = [];
         if (Auth::check()) {
-            $progressMap = ExperimentProgress::where('user_id', Auth::id())
-                ->get()
-                ->keyBy('experiment_id');
+            $progressMap = $this->progressService->progressMapForUser(Auth::id());
         }
 
         return view('pages.catalog', compact('experiments', 'categories', 'difficulties', 'progressMap'))
-            ->with('search', $search ?? '')
-            ->with('selectedCategory', $category ?? '')
-            ->with('selectedDifficulty', $difficulty ?? '');
+            ->with('search', $filters['search'] ?? '')
+            ->with('selectedCategory', $filters['category'] ?? '')
+            ->with('selectedDifficulty', $filters['difficulty'] ?? '');
     }
 
     public function simulation($id)
     {
-        $experiment = Experiment::findOrFail($id);
+        $experiment = $this->experimentService->findOrFail((int) $id);
         $steps = is_array($experiment->simulation_data['steps'] ?? null) ? $experiment->simulation_data['steps'] : [];
         $totalSteps = max(1, count($steps));
 
@@ -69,9 +66,7 @@ class PageController extends Controller
         $progressStatus = 'not_started';
 
         if (Auth::check()) {
-            $progress = ExperimentProgress::where('user_id', Auth::id())
-                ->where('experiment_id', $id)
-                ->first();
+            $progress = $this->progressService->findProgress(Auth::id(), $experiment->id);
 
             if ($progress) {
                 $currentStep = max(1, min($progress->current_step ?? 1, $totalSteps));
@@ -93,7 +88,7 @@ class PageController extends Controller
 
     public function progress(Request $request, $id)
     {
-        $experiment = Experiment::findOrFail($id);
+        $experiment = $this->experimentService->findOrFail((int) $id);
         $steps = is_array($experiment->simulation_data['steps'] ?? null) ? $experiment->simulation_data['steps'] : [];
         $totalSteps = max(1, count($steps));
 
@@ -115,14 +110,14 @@ class PageController extends Controller
             $currentStep = $totalSteps;
         }
 
-        $progress = ExperimentProgress::updateOrCreate(
-            ['user_id' => Auth::id(), 'experiment_id' => $id],
-            [
-                'status' => $status,
-                'current_step' => $currentStep,
-                'completed_at' => $status === self::STATUS_COMPLETED ? now() : null,
-                'score' => $status === self::STATUS_COMPLETED ? $experiment->points_reward : null,
-            ]
+        $score = $status === self::STATUS_COMPLETED ? $experiment->points_reward : null;
+
+        $this->progressService->saveProgress(
+            Auth::id(),
+            $experiment->id,
+            $currentStep,
+            $status,
+            $score
         );
 
         return response()->json([
@@ -138,43 +133,28 @@ class PageController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        
-        $recentActivities = ExperimentProgress::with('experiment')
-            ->where('user_id', $user->id)
-            ->orderBy('updated_at', 'desc')
-            ->take(5)
-            ->get();
-            
-        $completedCount = ExperimentProgress::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->count();
 
-        $badgeCount = ExperimentProgress::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->distinct('experiment_id')
-            ->count('experiment_id');
-
-        $favoriteTopic = ExperimentProgress::select('experiments.category', DB::raw('count(*) as total'))
-            ->join('experiments', 'experiment_progress.experiment_id', '=', 'experiments.id')
-            ->where('experiment_progress.user_id', $user->id)
-            ->where('experiment_progress.status', 'completed')
-            ->groupBy('experiments.category')
-            ->orderByDesc('total')
-            ->value('experiments.category') ?? 'Kimia Dasar';
+        $recentActivities = $this->progressService->recentActivities($user->id);
+        $completedCount = $this->progressService->completedCount($user->id);
+        $badgeCount = $this->progressService->completedBadgeCount($user->id);
+        $favoriteTopic = $this->progressService->favoriteTopic($user->id);
 
         $weekDays = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'];
         $weeklyData = array_fill_keys($weekDays, 0);
         $dayMap = ['Mon' => 'Sen', 'Tue' => 'Sel', 'Wed' => 'Rab', 'Thu' => 'Kam', 'Fri' => 'Jum'];
 
-        ExperimentProgress::where('user_id', $user->id)
-            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
-            ->get()
-            ->each(function ($activity) use (&$weeklyData, $dayMap) {
-                $dayName = $activity->created_at->format('D');
-                if (isset($dayMap[$dayName])) {
-                    $weeklyData[$dayMap[$dayName]]++;
-                }
-            });
+        $weeklyActivities = $this->progressService->progressBetween(
+            $user->id,
+            now()->startOfWeek()->toDateTimeString(),
+            now()->endOfWeek()->toDateTimeString()
+        );
+
+        $weeklyActivities->each(function ($activity) use (&$weeklyData, $dayMap) {
+            $dayName = $activity->created_at->format('D');
+            if (isset($dayMap[$dayName])) {
+                $weeklyData[$dayMap[$dayName]]++;
+            }
+        });
 
         return view('pages.dashboard', compact('user', 'recentActivities', 'completedCount', 'badgeCount', 'favoriteTopic', 'weeklyData'));
     }
@@ -182,25 +162,23 @@ class PageController extends Controller
     public function quiz($id)
     {
         $experimentId = (int) $id;
-        $experiment = Experiment::findOrFail($experimentId);
+        $experiment = $this->experimentService->findOrFail($experimentId);
         $steps = is_array($experiment->simulation_data['steps'] ?? null) ? $experiment->simulation_data['steps'] : [];
         $totalSteps = max(1, count($steps));
 
-        $progress = ExperimentProgress::where('user_id', Auth::id())
-            ->where('experiment_id', $experimentId)
-            ->first();
+        $progress = $this->progressService->findProgress(Auth::id(), $experimentId);
 
-        if (!$progress || $progress->current_step < $totalSteps) {
-            return redirect()->route('simulation', $experimentId)->with('error', 'Selesaikan simulasi terlebih dahulu sebelum mengikuti kuis.');
+        if (! $progress || $progress->current_step < $totalSteps) {
+            return redirect()->route('simulation', $experimentId)
+                ->with('error', 'Selesaikan simulasi terlebih dahulu sebelum mengikuti kuis.');
         }
 
         if ($progress->status === self::STATUS_STARTED) {
-            $progress->update(['status' => self::STATUS_QUIZ_PENDING]);
+            $this->progressService->saveProgress(Auth::id(), $experimentId, $progress->current_step, self::STATUS_QUIZ_PENDING, $progress->score);
+            $progress->refresh();
         }
 
-        $questions = \App\Models\Question::where('experiment_id', $experimentId)
-            ->with('answers')
-            ->get();
+        $questions = $this->quizService->questionsForExperiment($experimentId);
 
         return view('pages.quiz', compact('experiment', 'questions'));
     }
@@ -208,40 +186,13 @@ class PageController extends Controller
     public function submitQuiz(Request $request, $id)
     {
         $experimentId = (int) $id;
-        $experiment = Experiment::findOrFail($experimentId);
-        
-        $questions = \App\Models\Question::where('experiment_id', $experimentId)->get();
-        $totalQuestions = count($questions);
+        $experiment = $this->experimentService->findOrFail($experimentId);
 
-        $correctCount = 0;
+        $quizResult = $this->quizService->createQuizResult(Auth::id(), $experiment, $request->all());
+        $progress = $this->progressService->findProgress(Auth::id(), $experimentId);
 
-        foreach ($questions as $question) {
-            $userAnswer = $request->input("answer_{$question->id}");
-            
-            if ($userAnswer) {
-                $correctAnswer = $question->answers()->where('is_correct', true)->first();
-                if ($correctAnswer && $correctAnswer->id == $userAnswer) {
-                    $correctCount++;
-                }
-            }
-        }
-
-        $score = round(($correctCount / $totalQuestions) * 100);
-
-        $quizResult = \App\Models\QuizResult::create([
-            'user_id' => Auth::id(),
-            'experiment_id' => $experimentId,
-            'score' => $score,
-            'correct_answers' => $correctCount,
-            'total_questions' => $totalQuestions,
-        ]);
-
-        $progress = ExperimentProgress::where('user_id', Auth::id())
-            ->where('experiment_id', $experimentId)
-            ->first();
-
-        $passed = $score >= self::QUIZ_PASSING_SCORE;
-        $bonusPoints = round($experiment->points_reward * 0.5 * ($score / 100));
+        $passed = $quizResult->score >= self::QUIZ_PASSING_SCORE;
+        $bonusPoints = (int) round($experiment->points_reward * 0.5 * ($quizResult->score / 100));
 
         if ($progress) {
             if ($passed) {
@@ -253,9 +204,7 @@ class PageController extends Controller
                     'score' => $totalAward,
                 ]);
             } else {
-                $progress->update([
-                    'status' => self::STATUS_QUIZ_PENDING,
-                ]);
+                $progress->update(['status' => self::STATUS_QUIZ_PENDING]);
             }
         }
 
@@ -267,12 +216,12 @@ class PageController extends Controller
         $experimentId = (int) $id;
         $resultId = (int) request()->query('result');
 
-        if (!$resultId) {
+        if (! $resultId) {
             return redirect()->route('catalog')->with('error', 'Hasil kuis tidak ditemukan.');
         }
 
-        $experiment = Experiment::findOrFail($experimentId);
-        $result = \App\Models\QuizResult::findOrFail($resultId);
+        $experiment = $this->experimentService->findOrFail($experimentId);
+        $result = QuizResult::findOrFail($resultId);
 
         if ((int) $result->user_id !== (int) Auth::id() || (int) $result->experiment_id !== $experimentId) {
             abort(403, 'Anda tidak diizinkan mengakses hasil kuis ini.');
@@ -280,5 +229,4 @@ class PageController extends Controller
 
         return view('pages.quiz-results', compact('experiment', 'result'));
     }
-
 }
