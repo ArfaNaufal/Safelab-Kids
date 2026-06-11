@@ -44,11 +44,16 @@ class ExperimentController extends Controller
         $this->ensureAdmin($request);
 
         $data = $request->validated();
-        $simulationData = json_decode($data['simulation_data'], true);
 
-        if (! is_array($simulationData)) {
-            return redirect()->back()->withInput()->withErrors(['simulation_data' => 'Data simulasi harus berupa JSON yang valid.']);
-        }
+        $tools = array_filter(array_map('trim', explode(',', $data['tools'] ?? '')),
+            fn ($tool) => $tool !== ''
+        );
+
+        $simulationData = [
+            'steps' => array_values($data['steps']),
+            'tools' => array_values($tools),
+            'expected_result' => trim($data['expected_result'] ?? ''),
+        ];
 
         $this->experimentService->createExperiment([
             'title' => $data['title'],
@@ -75,11 +80,16 @@ class ExperimentController extends Controller
         $this->ensureAdmin($request);
 
         $data = $request->validated();
-        $simulationData = json_decode($data['simulation_data'], true);
 
-        if (! is_array($simulationData)) {
-            return redirect()->back()->withInput()->withErrors(['simulation_data' => 'Data simulasi harus berupa JSON yang valid.']);
-        }
+        $tools = array_filter(array_map('trim', explode(',', $data['tools'] ?? '')),
+            fn ($tool) => $tool !== ''
+        );
+
+        $simulationData = [
+            'steps' => array_values($data['steps']),
+            'tools' => array_values($tools),
+            'expected_result' => trim($data['expected_result'] ?? ''),
+        ];
 
         $this->experimentService->updateExperiment($experiment, [
             'title' => $data['title'],

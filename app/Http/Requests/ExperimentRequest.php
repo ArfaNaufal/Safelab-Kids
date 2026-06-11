@@ -20,7 +20,11 @@ class ExperimentRequest extends FormRequest
             'difficulty' => ['required', 'in:Mudah,Sedang,Sulit'],
             'duration_minutes' => ['required', 'integer', 'min:1'],
             'points_reward' => ['required', 'integer', 'min:0'],
-            'simulation_data' => ['required', 'string'],
+            'steps' => ['required', 'array', 'min:1'],
+            'steps.*.title' => ['required', 'string', 'max:255'],
+            'steps.*.description' => ['required', 'string'],
+            'tools' => ['nullable', 'string', 'max:1000'],
+            'expected_result' => ['nullable', 'string'],
         ];
     }
 }

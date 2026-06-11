@@ -8,6 +8,7 @@ use App\Domain\Contracts\QuestionRepositoryInterface;
 use App\Infrastructure\Repositories\EloquentExperimentProgressRepository;
 use App\Infrastructure\Repositories\EloquentExperimentRepository;
 use App\Infrastructure\Repositories\EloquentQuestionRepository;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
