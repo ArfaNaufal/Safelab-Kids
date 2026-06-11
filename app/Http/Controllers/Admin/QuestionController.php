@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Application\Services\QuestionService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\QuestionRequest;
 use App\Models\Experiment;
@@ -12,6 +13,10 @@ use Illuminate\View\View;
 
 class QuestionController extends Controller
 {
+    public function __construct(private QuestionService $questionService)
+    {
+    }
+
     private function ensureAdmin(Request $request): void
     {
         if (! $request->user() || $request->user()->role !== 'admin') {
@@ -23,7 +28,7 @@ class QuestionController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $questions = $experiment->questions()->with('answers')->get();
+        $questions = $this->questionService->listForExperiment($experiment);
 
         return view('admin.questions.index', compact('experiment', 'questions'));
     }
@@ -39,19 +44,16 @@ class QuestionController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $question = $experiment->questions()->create([
-            'question_text' => $request->validated()['question_text'],
-        ]);
-
+        $validated = $request->validated();
         $answerTexts = $request->input('answer_texts', []);
         $correctIndex = (int) $request->input('correct_answer_index');
 
-        foreach ($answerTexts as $index => $answerText) {
-            $question->answers()->create([
-                'answer_text' => $answerText,
-                'is_correct' => $index === $correctIndex,
-            ]);
-        }
+        $this->questionService->createQuestion(
+            $experiment,
+            $validated['question_text'],
+            $answerTexts,
+            $correctIndex
+        );
 
         return redirect()->route('admin.experiments.questions.index', $experiment)
             ->with('success', 'Pertanyaan kuis berhasil dibuat.');
@@ -78,19 +80,16 @@ class QuestionController extends Controller
             abort(404);
         }
 
-        $question->update(['question_text' => $request->validated()['question_text']]);
-
-        $question->answers()->delete();
-
+        $validated = $request->validated();
         $answerTexts = $request->input('answer_texts', []);
         $correctIndex = (int) $request->input('correct_answer_index');
 
-        foreach ($answerTexts as $index => $answerText) {
-            $question->answers()->create([
-                'answer_text' => $answerText,
-                'is_correct' => $index === $correctIndex,
-            ]);
-        }
+        $this->questionService->updateQuestion(
+            $question,
+            $validated['question_text'],
+            $answerTexts,
+            $correctIndex
+        );
 
         return redirect()->route('admin.experiments.questions.index', $experiment)
             ->with('success', 'Pertanyaan kuis berhasil diperbarui.');
@@ -104,7 +103,7 @@ class QuestionController extends Controller
             abort(404);
         }
 
-        $question->delete();
+        $this->questionService->removeQuestion($question);
 
         return redirect()->route('admin.experiments.questions.index', $experiment)
             ->with('success', 'Pertanyaan kuis berhasil dihapus.');

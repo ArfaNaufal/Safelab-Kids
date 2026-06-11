@@ -1,48 +1,54 @@
 <?php
 namespace App\Http\Controllers\Api;
 
+use App\Application\Services\ExperimentService;
+use App\Application\Services\ProgressService;
 use App\Http\Controllers\Controller;
-use App\Models\Experiment;
-use App\Models\ExperimentProgress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ExperimentApiController extends Controller
 {
-    // GET: Fetch all experiments for the interactive catalog
-    public function index()
-    {
-        $experiments = Experiment::select('id', 'title', 'category', 'difficulty', 'duration_minutes')->get();
-        return response()->json(['status' => 'success', 'data' => $experiments], 200);
+    public function __construct(
+        private ExperimentService $experimentService,
+        private ProgressService $progressService
+    ) {
     }
 
-    // GET: Fetch specific simulation data
+    public function index()
+    {
+        $experiments = $this->experimentService->listExperiments();
+
+        return response()->json(['status' => 'success', 'data' => $experiments->makeHidden(['description', 'simulation_data'])], 200);
+    }
+
     public function show($id)
     {
-        $experiment = Experiment::findOrFail($id);
+        $experiment = $this->experimentService->findOrFail($id);
+
         return response()->json(['status' => 'success', 'data' => $experiment], 200);
     }
 
-    // POST: Update student progress from the interactive simulation
     public function submitProgress(Request $request, $id)
     {
         $validated = $request->validate([
             'status' => 'required|in:started,completed',
-            'score' => 'nullable|integer'
+            'score' => 'nullable|integer',
         ]);
 
-        $progress = ExperimentProgress::updateOrCreate(
-            ['user_id' => Auth::id(), 'experiment_id' => $id],
-            [
-                'status' => $validated['status'],
-                'score' => $validated['score'] ?? null,
-                'completed_at' => $validated['status'] === 'completed' ? now() : null,
-            ]
+        $userId = Auth::id();
+        $experiment = $this->experimentService->findOrFail($id);
+
+        $progress = $this->progressService->saveProgress(
+            $userId,
+            $id,
+            0,
+            $validated['status'],
+            $validated['score'] ?? null
         );
 
         if ($validated['status'] === 'completed') {
-            $user = Auth::user();
-            $user->increment('total_points', Experiment::find($id)->points_reward);
+            Auth::user()->increment('total_points', $experiment->points_reward);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Progress saved.', 'data' => $progress], 200);

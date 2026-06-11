@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Application\Services\ExperimentService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ExperimentRequest;
 use App\Models\Experiment;
@@ -11,6 +12,10 @@ use Illuminate\View\View;
 
 class ExperimentController extends Controller
 {
+    public function __construct(private ExperimentService $experimentService)
+    {
+    }
+
     private function ensureAdmin(Request $request): void
     {
         if (! $request->user() || $request->user()->role !== 'admin') {
@@ -22,7 +27,7 @@ class ExperimentController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $experiments = Experiment::orderBy('title')->get();
+        $experiments = $this->experimentService->listExperiments();
 
         return view('admin.experiments.index', compact('experiments'));
     }
@@ -45,7 +50,7 @@ class ExperimentController extends Controller
             return redirect()->back()->withInput()->withErrors(['simulation_data' => 'Data simulasi harus berupa JSON yang valid.']);
         }
 
-        Experiment::create([
+        $this->experimentService->createExperiment([
             'title' => $data['title'],
             'description' => $data['description'],
             'category' => $data['category'],
@@ -76,7 +81,7 @@ class ExperimentController extends Controller
             return redirect()->back()->withInput()->withErrors(['simulation_data' => 'Data simulasi harus berupa JSON yang valid.']);
         }
 
-        $experiment->update([
+        $this->experimentService->updateExperiment($experiment, [
             'title' => $data['title'],
             'description' => $data['description'],
             'category' => $data['category'],
@@ -93,7 +98,7 @@ class ExperimentController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $experiment->delete();
+        $this->experimentService->deleteExperiment($experiment);
 
         return redirect()->route('admin.experiments.index')->with('success', 'Eksperimen berhasil dihapus.');
     }
